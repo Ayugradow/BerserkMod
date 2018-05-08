@@ -39,6 +39,9 @@
     <Reference Include="Hooks">
       <HintPath>..\..\..\..\Downloads\HK MODDING\DLLS\QoL\Hooks.dll</HintPath>
     </Reference>
+    <Reference Include="ModCommon">
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Hollow Knight\hollow_knight_data\Managed\Mods\ModCommon.dll</HintPath>
+    </Reference>
     <Reference Include="PlayMaker">
       <HintPath>..\..\..\..\Downloads\HK MODDING\DLLS\HollowKnight.Modding-master\Vanilla\PlayMaker.dll</HintPath>
     </Reference>
@@ -61,6 +64,7 @@
     <Compile Include="BerserkMod.cs" />
     <Compile Include="PlayMakerFSMExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Toggle.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
