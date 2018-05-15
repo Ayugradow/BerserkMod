@@ -1,16 +1,19 @@
-﻿using System.Linq;
-using Modding;
-using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
 using BerserkMod.Extensions;
+using GlobalEnums;
 using HutongGames.PlayMaker;
 using HutongGames.PlayMaker.Actions;
-using System.Collections.Generic;
 using InControl;
 using ModCommon;
+using Modding;
+using UnityEngine;
+using Object = UnityEngine.Object;
+using TakeDamage = On.HutongGames.PlayMaker.Actions.TakeDamage;
 
 namespace BerserkMod
 {
-    public class Berserker : Mod, ITogglableMod
+    public class Berserker : Mod
     {
         private static Berserker _instance;
 
@@ -24,71 +27,108 @@ namespace BerserkMod
             On.HeroController.FixedUpdate += HeroController_FixedUpdate;
             On.HeroController.TakeDamage += HeroController_TakeDamage;
             On.HeroController.CharmUpdate += HeroController_CharmUpdate;
-            On.HutongGames.PlayMaker.Actions.TakeDamage.OnEnter += TakeDamage_OnEnter;
             ModHooks.Instance.HitInstanceHook += Instance_HitInstanceHook;
-            ModHooks.Instance.HeroUpdateHook += Instance_HeroUpdateHook;
+            On.HeroController.Update += HeroController_Update;
             
 
             _berserkToggle.berserkL.AddDefaultBinding(InputControlType.LeftStickButton);
             _berserkToggle.berserkR.AddDefaultBinding(InputControlType.RightStickButton);
-            _berserkToggle.berserkKb.AddDefaultBinding(Key.End);
+            _berserkToggle.berserkKb.AddDefaultBinding(Key.Backspace);
 
             _instance.Log("BerserkerMod initialized!");
         }
 
-        private void Instance_HeroUpdateHook()
+        private void HeroController_Update(On.HeroController.orig_Update orig, HeroController self)
         {
-            Log($"{berserkOn}");
-            if ((!_berserkToggle.berserkR.IsPressed || !_berserkToggle.berserkL.WasPressed) &&
-                (!_berserkToggle.berserkR.WasPressed || !_berserkToggle.berserkL.IsPressed) &&
-                !_berserkToggle.berserkKb.WasPressed) return;
-            berserkOn = !berserkOn;
-            if (renderer != null)
-                renderer.enabled = berserkOn;
-            if (fury != null)
-                if (berserkOn)
-                {
-                    fury.GetComponent<ParticleSystem>().Play();
-                }
-                else
-                {
-                    fury.GetComponent<ParticleSystem>().Stop();
-                }
-
-            if (furyParticle != null)
-                if (berserkOn)
-                {
-                    furyParticle.GetComponent<ParticleSystem>().Play();
-                }
-                else
-                {
-                    furyParticle.GetComponent<ParticleSystem>().Stop();
-                }
-
-            if (rage != null)
-                rage.SetActive(berserkOn);
-            if (audioPlayerUI != null)
+            orig(self);
+            if ((!_berserkToggle.berserkR.IsPressed || !_berserkToggle.berserkL.IsPressed) &&
+                !_berserkToggle.berserkKb.IsPressed)
             {
-                if (berserkOn)
+                activeTimer = 2f;
+            }
+            else
+            {
+                if (!berserkOn)
+                {
+                    if (activeTimer > 0f)
+                    {
+                        if (furyVignette != null)
+                        {
+                            foreach (SpriteRenderer spriteRenderer in furyVignette.GetComponent<FadeGroup>().spriteRenderers)
+                            {
+                                spriteRenderer.enabled = true;
+                                spriteRenderer.color = new Color(255f, 153f, 0f);
+                                spriteRenderer.drawMode = SpriteDrawMode.Simple;
+                            }
+                        }
+
+                        Log(activeTimer);
+                        activeTimer -= Time.fixedDeltaTime;
+                    }
+                    else
+                    {
+                        if (furyVignette != null)
+                        {
+                            foreach (SpriteRenderer spriteRenderer in furyVignette.GetComponent<FadeGroup>().spriteRenderers)
+                            {
+                                spriteRenderer.enabled = false;
+                            }
+                        }
+
+                        Log("Activating BERSERK");
+                        if (fury != null)
+                            fury.GetComponent<ParticleSystem>().Play();
+
+                        berserkOn = true;
+                        deactivate = false;
+                        playedFury = false;
+                        activeTimer = 2f;
+                    }
+
+                }
+            }
+
+            if (!playedFury)
+            {
+                if (renderer != null)
+                    renderer.enabled = true;
+
+
+
+                if (furyParticle != null)
+                    furyParticle.GetComponent<ParticleSystem>().Play();
+
+                if (rage != null)
+                    rage.SetActive(true);
+
+                if (audioPlayerUI != null)
                 {
                     audioPlayerUI.Spawn(HeroController.instance.gameObject.transform.position,
                         Quaternion.Euler(Vector3.up));
                     audioPlayerUI.GetComponent<AudioSource>().Play();
                 }
-                else
-                {
+
+                playedFury = true;
+            }
+
+            if (deactivate)
+            {
+                if (renderer != null)
+                    renderer.enabled = false;
+
+                if (fury != null)
+                    fury.GetComponent<ParticleSystem>().Stop();
+
+                if (furyParticle != null)
+                    furyParticle.GetComponent<ParticleSystem>().Stop();
+
+                if (rage != null)
+                    rage.SetActive(false);
+
+                if (audioPlayerUI != null)
                     audioPlayerUI.GetComponent<AudioSource>().Stop();
-                }
-            }
-            if (berserkOn)
-            {
-                knightAnimator.Play("SD Charge Ground");
-                PlayMakerFSM.BroadcastEvent("SUPERDASH CHARGING G");
-                knightAnimator.PlayFromFrame(0);
-            }
-            else
-            {
-                knightAnimator.Stop();
+
+                deactivate = false;
             }
         }
 
@@ -111,7 +151,7 @@ namespace BerserkMod
             downTimer = 1f;
         }
 
-        private void HeroController_TakeDamage(On.HeroController.orig_TakeDamage orig, HeroController self, GameObject go, GlobalEnums.CollisionSide damageSide, int damageAmount, int hazardType)
+        private void HeroController_TakeDamage(On.HeroController.orig_TakeDamage orig, HeroController self, GameObject go, CollisionSide damageSide, int damageAmount, int hazardType)
         {
             if (!PlayerData.instance.equippedCharm_29 || !berserkOn) orig(self, go, damageSide, damageAmount, hazardType);
             animator.Stop();
@@ -121,20 +161,6 @@ namespace BerserkMod
             played2 = false;
             downTimer = 1f;
             orig(self, go, damageSide, 2*damageAmount, hazardType);
-        }
-
-        private void TakeDamage_OnEnter(On.HutongGames.PlayMaker.Actions.TakeDamage.orig_OnEnter orig, TakeDamage self)
-        {
-            orig(self);
-            if (!PlayerData.instance.equippedCharm_29 || !berserkOn) return;
-            animator.Stop();
-            animator.Play("Hive Health Recover2");
-            animator.PlayFromFrame(0);
-            played1 = true;
-            played2 = false;
-            downTimer = 10f;
-            if (self.Target.Value.GetComponent<HealthManager>() == null) return;
-            hitTimer = 2f;
         }
 
         private void HeroController_FixedUpdate(On.HeroController.orig_FixedUpdate orig, HeroController self)
@@ -191,12 +217,6 @@ namespace BerserkMod
                 }
             }
 
-            if (knightAnimator == null)
-            {
-                knightAnimator = HeroController.instance.gameObject.GetComponent<tk2dSpriteAnimator>();
-                Log($"Got Knight animator {knightAnimator} and clip {knightAnimator.GetClipByName("SD Charge Ground")}");
-            }
-
             if (fury == null)
             {
                 foreach (Transform transform in Object.FindObjectsOfType<Transform>())
@@ -242,16 +262,16 @@ namespace BerserkMod
                 }
             }
 
-            //if (audioClip == null)
-            //{
-            //    foreach (var clip in Object.FindObjectsOfType<Transform>())
-            //    {
-            //        //audioClip = clip;
-            //        if (clip.gameObject.name != "Health 1") continue;
-            //        clip.gameObject.PrintSceneHierarchyTree("Health 1");
-            //        Log($"Got audio clip {clip}");
-            //    }
-            //}
+            if (furyVignette == null)
+            {
+                foreach (Transform transform in Object.FindObjectsOfType<Transform>())
+                {
+                    if (!transform.gameObject.name.Contains("fury_effects_v2")) continue;
+                    furyVignette = transform.gameObject;
+                    furyVignette.PrintSceneHierarchyTree("Fury Vignette");
+                    Log($"Found fury vignette {transform.gameObject.name}");
+                }
+            }
 
             if (hero == null || hive == null || blob == null || fury == null || rage == null || !berserkOn) return;
             if (blob.transform.localPosition != def + 0.94f * (PlayerData.instance.health - 1) * Vector3.right)
@@ -261,7 +281,7 @@ namespace BerserkMod
                 blob.transform.localPosition = def + 0.94f * (PlayerData.instance.health - 1) * Vector3.right;
             }
 
-            if (downTimer > 0f && hitTimer <= 0 && PlayerData.instance.health > 1)
+            if (downTimer > 0f && PlayerData.instance.health > 1)
             {
                 if (!played1)
                 {
@@ -293,45 +313,35 @@ namespace BerserkMod
             else if (PlayerData.instance.health <= 1)
             {
                 berserkOn = false;
+                deactivate = true;
                 renderer.enabled = false;
                 fury.GetComponent<ParticleSystem>().Stop();
                 rage.SetActive(false);
             }
-
-            if (hitTimer > 0f)
-            {
-                hitTimer -= Time.fixedDeltaTime;
-            }
-            else
-            {
-                hitTimer = 0f;
-            }
-        }
-
-        public void Unload()
-        {
-            _instance.Log("Disabling BerserkerMod!");
         }
 
         public PlayMakerFSM hive;
         public PlayMakerFSM hero;
         public float downTimer = 1f;
-        public float hitTimer;
+        public float activeTimer = 2;
         public bool played1;
         public bool played2;
+        public bool playedFury = true;
+        public bool deactivate;
         public SpriteFlash sprite;
         public tk2dSpriteAnimator animator;
-        public tk2dSpriteAnimator knightAnimator;
         public MeshRenderer renderer;
         public GameObject blob;
         public GameObject fury;
         public GameObject rage;
         public GameObject audioPlayerUI;
+        public GameObject furyVignette;
         public AudioClip audioClip;
         private Vector3 def;
         private Toggle _berserkToggle = new Toggle();
         private bool setup;
         private bool berserkOn;
         private GameObject furyParticle;
+        private GameObject heroAnimation;
     }
 }

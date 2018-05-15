@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using InControl;
+﻿using InControl;
 
 namespace BerserkMod
 {
@@ -11,8 +6,8 @@ namespace BerserkMod
     {
         public Toggle()
         {
-            berserkL = base.CreatePlayerAction("BerserkL");
-            berserkR = base.CreatePlayerAction("BerserkR");
+            berserkL = CreatePlayerAction("BerserkL");
+            berserkR = CreatePlayerAction("BerserkR");
             berserkKb = CreatePlayerAction("BerserkKB");
         }
 
