@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using BerserkMod.Extensions;
 using GlobalEnums;
 using HutongGames.PlayMaker;
@@ -9,15 +10,13 @@ using ModCommon;
 using Modding;
 using UnityEngine;
 using Object = UnityEngine.Object;
-using TakeDamage = On.HutongGames.PlayMaker.Actions.TakeDamage;
-
 namespace BerserkMod
 {
     public class Berserker : Mod
     {
         private static Berserker _instance;
 
-        public override string GetVersion() => "0.0.1";
+        public override string GetVersion() => "0.1.0";
 
         public override void Initialize()
         {
@@ -29,6 +28,7 @@ namespace BerserkMod
             On.HeroController.CharmUpdate += HeroController_CharmUpdate;
             ModHooks.Instance.HitInstanceHook += Instance_HitInstanceHook;
             On.HeroController.Update += HeroController_Update;
+            On.NailSlash.StartSlash += NailSlash_StartSlash;
             
 
             _berserkToggle.berserkL.AddDefaultBinding(InputControlType.LeftStickButton);
@@ -36,6 +36,13 @@ namespace BerserkMod
             _berserkToggle.berserkKb.AddDefaultBinding(Key.Backspace);
 
             _instance.Log("BerserkerMod initialized!");
+
+        }
+
+        private void NailSlash_StartSlash(On.NailSlash.orig_StartSlash orig, NailSlash self)
+        {
+            self.GetComponent<tk2dSpriteAnimator>().Sprite.color = Color.black;
+            orig(self);
         }
 
         private void HeroController_Update(On.HeroController.orig_Update orig, HeroController self)
@@ -45,6 +52,7 @@ namespace BerserkMod
                 !_berserkToggle.berserkKb.IsPressed)
             {
                 activeTimer = 2f;
+                cameraZoom.ZoomFactor = 1f;
             }
             else
             {
@@ -62,8 +70,16 @@ namespace BerserkMod
                             }
                         }
 
+                        if (audioPlayerUI != null)
+                        {
+                            audioPlayerUI.Spawn(HeroController.instance.gameObject.transform.position,
+                                Quaternion.Euler(Vector3.up));
+                            audioPlayerUI.GetComponent<AudioSource>().Play();
+                        }
+
                         Log(activeTimer);
                         activeTimer -= Time.fixedDeltaTime;
+                        cameraZoom.ZoomFactor = - 0.1f * activeTimer + 1.2f;
                     }
                     else
                     {
@@ -75,37 +91,44 @@ namespace BerserkMod
                             }
                         }
 
-                        Log("Activating BERSERK");
-                        if (fury != null)
-                            fury.GetComponent<ParticleSystem>().Play();
+                        if (audioPlayerUI != null)
+                            audioPlayerUI.GetComponent<AudioSource>().Stop();
 
+                        Log("Activating BERSERK");
+
+                        cameraZoom.ZoomFactor = 1;
                         berserkOn = true;
                         deactivate = false;
                         playedFury = false;
                         activeTimer = 2f;
                     }
-
                 }
             }
 
             if (!playedFury)
             {
+                if (fury != null)
+                {
+                    fury.GetComponent<ParticleSystem>().Play();
+                    Log("Fury");
+                }
+
                 if (renderer != null)
+                {
                     renderer.enabled = true;
-
-
+                    Log("Renderer");
+                }
 
                 if (furyParticle != null)
+                {
                     furyParticle.GetComponent<ParticleSystem>().Play();
+                    Log("Fury particle");
+                }
 
                 if (rage != null)
-                    rage.SetActive(true);
-
-                if (audioPlayerUI != null)
                 {
-                    audioPlayerUI.Spawn(HeroController.instance.gameObject.transform.position,
-                        Quaternion.Euler(Vector3.up));
-                    audioPlayerUI.GetComponent<AudioSource>().Play();
+                    rage.SetActive(true);
+                    Log("Rage");
                 }
 
                 playedFury = true;
@@ -125,11 +148,22 @@ namespace BerserkMod
                 if (rage != null)
                     rage.SetActive(false);
 
-                if (audioPlayerUI != null)
-                    audioPlayerUI.GetComponent<AudioSource>().Stop();
+                if (furyVignette != null)
+                {
+                    foreach (SpriteRenderer spriteRenderer in furyVignette.GetComponent<FadeGroup>().spriteRenderers)
+                    {
+                        spriteRenderer.enabled = false;
+                    }
+                }
 
                 deactivate = false;
             }
+
+            //foreach (MeshRenderer meshRenderer in slashMeshRenderer)
+            //{
+            //    if (meshRenderer == null || !meshRenderer.enabled) continue;
+            //    meshRenderer.material.color = Color.black;
+            //}
         }
 
         private HitInstance Instance_HitInstanceHook(Fsm owner, HitInstance hit)
@@ -175,9 +209,26 @@ namespace BerserkMod
             }
 
             if (!PlayerData.instance.equippedCharm_29) return;
+
+            if (cameraZoom == null)
+            {
+                foreach (var camera in Object.FindObjectsOfType<Transform>())
+                {
+                    if (camera.gameObject.GetComponent<tk2dCamera>() == null) continue;
+                    cameraZoom = camera.gameObject.GetComponent<tk2dCamera>();
+                    cameraCtrl = cameraZoom.GetComponent<CameraController>();
+
+                    if (cameraCtrl == null)
+                        cameraCtrl = cameraZoom.gameObject.AddComponent<CameraController>();
+
+                    Log($"Got camera {cameraZoom} and camera controller {cameraCtrl}");
+                }
+            }
+
             if (hero == null)
             {
                 hero = FSMUtility.LocateFSM(HeroController.instance.gameObject, "ProxyFSM");
+                HeroController.instance.gameObject.PrintSceneHierarchyTree("Knight");
 
                 Log($"Got hero {hero.name}");
             }
@@ -212,7 +263,7 @@ namespace BerserkMod
                     animator = blob.GetComponent<tk2dSpriteAnimator>();
                     def = blob.transform.localPosition;
                     sprite = blob.GetComponent<SpriteFlash>() ?? blob.AddComponent<SpriteFlash>();
-                    sprite.FlashingFury();
+                    sprite.FlashGrimmflame();
                     break;
                 }
             }
@@ -343,5 +394,9 @@ namespace BerserkMod
         private bool berserkOn;
         private GameObject furyParticle;
         private GameObject heroAnimation;
+        private tk2dCamera cameraZoom;
+        private CameraController cameraCtrl;
+        private CameraController.CameraMode mode;
+        private Color defSlashColor;
     }
 }
