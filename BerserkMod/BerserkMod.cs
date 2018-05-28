@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
 using BerserkMod.Extensions;
 using GlobalEnums;
 using HutongGames.PlayMaker;
-using HutongGames.PlayMaker.Actions;
 using InControl;
 using ModCommon;
 using Modding;
@@ -54,7 +52,7 @@ namespace BerserkMod
                 activeTimer = 2f;
                 cameraZoom.ZoomFactor = 1f;
             }
-            else
+            else if (PlayerData.instance.GetInt("health") > 1)
             {
                 if (!berserkOn)
                 {
@@ -168,7 +166,7 @@ namespace BerserkMod
 
         private HitInstance Instance_HitInstanceHook(Fsm owner, HitInstance hit)
         {
-            if (!PlayerData.instance.equippedCharm_29 || !berserkOn) return hit;
+            if (!PlayerData.instance.GetBool("equippedCharm_29") || !berserkOn) return hit;
             hit.Multiplier = 2f;
             return hit;
         }
@@ -176,7 +174,7 @@ namespace BerserkMod
         private void HeroController_CharmUpdate(On.HeroController.orig_CharmUpdate orig, HeroController self)
         {
             orig(self);
-            if (!PlayerData.instance.equippedCharm_29 || !berserkOn) return;
+            if (!PlayerData.instance.GetBool("equippedCharm_29") || !berserkOn) return;
             animator.Stop();
             animator.Play("Hive Health Recover2");
             animator.PlayFromFrame(0);
@@ -187,7 +185,7 @@ namespace BerserkMod
 
         private void HeroController_TakeDamage(On.HeroController.orig_TakeDamage orig, HeroController self, GameObject go, CollisionSide damageSide, int damageAmount, int hazardType)
         {
-            if (!PlayerData.instance.equippedCharm_29 || !berserkOn) orig(self, go, damageSide, damageAmount, hazardType);
+            if (!PlayerData.instance.GetBool("equippedCharm_29") || !berserkOn) orig(self, go, damageSide, damageAmount, hazardType);
             animator.Stop();
             animator.Play("Hive Health Recover2");
             animator.PlayFromFrame(0);
@@ -200,15 +198,15 @@ namespace BerserkMod
         private void HeroController_FixedUpdate(On.HeroController.orig_FixedUpdate orig, HeroController self)
         {
             orig(self);
-            if (!PlayerData.instance.gotCharm_29)
+            if (!setup)
             {
-                PlayerData.instance.hasCharm = true;
-                PlayerData.instance.gotCharm_29 = true;
-                PlayerData.instance.charmCost_29 = 0;
+                PlayerData.instance.SetBool("hasCharm", true);
+                PlayerData.instance.SetBool("gotCharm_29", true);
+                PlayerData.instance.SetInt("charmCost_29", 0);
                 setup = true;
             }
 
-            if (!PlayerData.instance.equippedCharm_29) return;
+            if (!PlayerData.instance.GetBool("equippedCharm_29")) return;
 
             if (cameraZoom == null)
             {
@@ -325,14 +323,14 @@ namespace BerserkMod
             }
 
             if (hero == null || hive == null || blob == null || fury == null || rage == null || !berserkOn) return;
-            if (blob.transform.localPosition != def + 0.94f * (PlayerData.instance.health - 1) * Vector3.right)
+            if (blob.transform.localPosition != def + 0.94f * (PlayerData.instance.GetInt("health") - 1) * Vector3.right)
             {
                 Log(@"Updating health");
                 furyParticle.transform.localPosition = blob.transform.localPosition;
-                blob.transform.localPosition = def + 0.94f * (PlayerData.instance.health - 1) * Vector3.right;
+                blob.transform.localPosition = def + 0.94f * (PlayerData.instance.GetInt("health") - 1) * Vector3.right;
             }
 
-            if (downTimer > 0f && PlayerData.instance.health > 1)
+            if (downTimer > 0f && PlayerData.instance.GetInt("health") > 1)
             {
                 if (!played1)
                 {
@@ -361,7 +359,7 @@ namespace BerserkMod
                 hero.SendEvent("HERO DAMAGED");
                 downTimer = 1f;
             }
-            else if (PlayerData.instance.health <= 1)
+            else if (PlayerData.instance.GetInt("health") <= 1)
             {
                 berserkOn = false;
                 deactivate = true;
@@ -389,14 +387,12 @@ namespace BerserkMod
         public GameObject furyVignette;
         public AudioClip audioClip;
         private Vector3 def;
-        private Toggle _berserkToggle = new Toggle();
+        private readonly Toggle _berserkToggle = new Toggle();
         private bool setup;
         private bool berserkOn;
         private GameObject furyParticle;
-        private GameObject heroAnimation;
         private tk2dCamera cameraZoom;
         private CameraController cameraCtrl;
-        private CameraController.CameraMode mode;
         private Color defSlashColor;
     }
 }
