@@ -37,9 +37,6 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Hollow Knight\hollow_knight_data\Managed\GalaxyCSharp.dll</HintPath>
     </Reference>
-    <Reference Include="Hooks">
-      <HintPath>..\..\..\..\Downloads\HK MODDING\DLLS\QoL\Hooks.dll</HintPath>
-    </Reference>
     <Reference Include="ModCommon">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Hollow Knight\hollow_knight_data\Managed\Mods\ModCommon.dll</HintPath>
     </Reference>

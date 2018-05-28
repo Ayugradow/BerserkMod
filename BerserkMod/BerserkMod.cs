@@ -16,7 +16,7 @@ namespace BerserkMod
     {
         private static Berserker _instance;
 
-        public override string GetVersion() => "0.1.0";
+        public override string GetVersion() => "0.1.1";
 
         public override void Initialize()
         {
