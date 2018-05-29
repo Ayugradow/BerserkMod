@@ -6,13 +6,11 @@ namespace BerserkMod
     {
         public Toggle()
         {
-            berserkL = CreatePlayerAction("BerserkL");
-            berserkR = CreatePlayerAction("BerserkR");
+            berserkButton = CreatePlayerAction("BerserkButton");
             berserkKb = CreatePlayerAction("BerserkKB");
         }
 
-        public PlayerAction berserkL;
-        public PlayerAction berserkR;
+        public PlayerAction berserkButton;
         public PlayerAction berserkKb;
     }
 }

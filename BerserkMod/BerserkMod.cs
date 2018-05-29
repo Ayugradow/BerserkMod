@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using BerserkMod.Extensions;
 using GlobalEnums;
 using HutongGames.PlayMaker;
@@ -8,13 +9,14 @@ using ModCommon;
 using Modding;
 using UnityEngine;
 using Object = UnityEngine.Object;
+
 namespace BerserkMod
 {
-    public class Berserker : Mod
+    public class Berserker : Mod<Settings, GlobalSettings>
     {
         private static Berserker _instance;
 
-        public override string GetVersion() => "0.1.1";
+        public override string GetVersion() => "0.2.0";
 
         public override void Initialize()
         {
@@ -27,14 +29,21 @@ namespace BerserkMod
             ModHooks.Instance.HitInstanceHook += Instance_HitInstanceHook;
             On.HeroController.Update += HeroController_Update;
             On.NailSlash.StartSlash += NailSlash_StartSlash;
-            
 
-            _berserkToggle.berserkL.AddDefaultBinding(InputControlType.LeftStickButton);
-            _berserkToggle.berserkR.AddDefaultBinding(InputControlType.RightStickButton);
-            _berserkToggle.berserkKb.AddDefaultBinding(Key.Backspace);
+            GlobalSettings.Keys = GlobalSettings.Keys;
+            GlobalSettings.Button = GlobalSettings.Button;
+            SaveGlobalSettings();
+            
+            _berserkToggle.berserkButton.AddDefaultBinding((InputControlType)GlobalSettings.Button);
+            _berserkToggle.berserkKb.AddDefaultBinding((Key)GlobalSettings.Keys);
 
             _instance.Log("BerserkerMod initialized!");
 
+        }
+
+        private Key[] GetKeyArrayFromString(string keys)
+        {
+            return keys.Split(',').Select(n => Convert.ToInt32(n)).Select(i => (Key)i).ToArray();
         }
 
         private void NailSlash_StartSlash(On.NailSlash.orig_StartSlash orig, NailSlash self)
@@ -46,7 +55,7 @@ namespace BerserkMod
         private void HeroController_Update(On.HeroController.orig_Update orig, HeroController self)
         {
             orig(self);
-            if ((!_berserkToggle.berserkR.IsPressed || !_berserkToggle.berserkL.IsPressed) &&
+            if (!_berserkToggle.berserkButton.IsPressed &&
                 !_berserkToggle.berserkKb.IsPressed)
             {
                 activeTimer = 2f;
@@ -393,6 +402,5 @@ namespace BerserkMod
         private GameObject furyParticle;
         private tk2dCamera cameraZoom;
         private CameraController cameraCtrl;
-        private Color defSlashColor;
     }
 }
